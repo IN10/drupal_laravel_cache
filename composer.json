@@ -1,7 +1,7 @@
 {
   "name": "in10/drupal_laravel_cache",
   "description": "Module which manages laravel cache (both automatically and manually)",
-  "type": "module",
+  "type": "drupal-module",
   "license": "MIT",
   "authors": [
     {
