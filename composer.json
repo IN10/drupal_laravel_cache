@@ -8,5 +8,7 @@
       "name": "Stephan de Bruin",
       "email": "stephan.de.bruin@in10.nl"
     }
-  ]
+  ],
+  "minimum-stability": "dev",
+  "require": {}
 }
