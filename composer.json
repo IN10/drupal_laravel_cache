@@ -1,0 +1,12 @@
+{
+  "name": "in10/drupal_laravel_cache",
+  "description": "Module which manages laravel cache (both automatically and manually)",
+  "type": "module",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Stephan de Bruin",
+      "email": "stephan.de.bruin@in10.nl"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+<?php
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\drupal_laravel_cache\Controller\DrupalLaravelCacheController;
+
+/**
+ * React to entity creation
+ * @param EntityInterface $entity
+ */
+function drupal_laravel_cache_entity_insert(EntityInterface $entity)
+{
+  if ($entity->getEntityTypeId() === 'node') {
+    DrupalLaravelCacheController::invalidateCache($entity);
+  }
+}
+
+/**
+ * React to entity update
+ * @param EntityInterface $entity
+ */
+function drupal_laravel_cache_entity_update(EntityInterface $entity)
+{
+  if ($entity->getEntityTypeId() === 'node') {
+    DrupalLaravelCacheController::invalidateCache($entity);
+  }
+}
+
+/**
+ * React to entity deletion
+ * @param EntityInterface $entity
+ */
+function drupal_laravel_cache_entity_delete(EntityInterface $entity)
+{
+  if ($entity->getEntityTypeId() === 'node') {
+    DrupalLaravelCacheController::invalidateCache($entity);
+  }
+}

@@ -1,0 +1,7 @@
+drupalLaravelCache.clearall:
+  path: '/cache/clearall'
+  defaults:
+    _controller: '\Drupal\drupal_laravel_cache\Controller\DrupalLaravelCacheController::clearAll'
+    _title: 'Cache cleared'
+  requirements:
+    _permission: 'access content'

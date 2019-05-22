@@ -1,0 +1,4 @@
+drupalLaravelCache.clearall:
+  route_name: drupalLaravelCache.clearall
+  title: 'Clear all cache'
+  base_route: system.admin_content
