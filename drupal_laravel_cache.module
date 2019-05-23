@@ -6,32 +6,39 @@ use Drupal\drupal_laravel_cache\Controller\DrupalLaravelCacheController;
 /**
  * React to entity creation
  * @param EntityInterface $entity
+ * @throws \GuzzleHttp\Exception\GuzzleException
  */
 function drupal_laravel_cache_entity_insert(EntityInterface $entity)
 {
-  if ($entity->getEntityTypeId() === 'node') {
-    DrupalLaravelCacheController::invalidateCache($entity);
-  }
+    if ($entity->getEntityTypeId() === 'node') {
+        $dlcc = new DrupalLaravelCacheController();
+        $dlcc->invalidateCache($entity);
+    }
 }
 
 /**
+ *
  * React to entity update
  * @param EntityInterface $entity
+ * @throws \GuzzleHttp\Exception\GuzzleException
  */
 function drupal_laravel_cache_entity_update(EntityInterface $entity)
 {
-  if ($entity->getEntityTypeId() === 'node') {
-    DrupalLaravelCacheController::invalidateCache($entity);
-  }
+    if ($entity->getEntityTypeId() === 'node') {
+        $dlcc = new DrupalLaravelCacheController();
+        $dlcc->invalidateCache($entity);
+    }
 }
 
 /**
- * React to entity deletion
+ *  React to entity deletion
  * @param EntityInterface $entity
+ * @throws \GuzzleHttp\Exception\GuzzleException
  */
 function drupal_laravel_cache_entity_delete(EntityInterface $entity)
 {
-  if ($entity->getEntityTypeId() === 'node') {
-    DrupalLaravelCacheController::invalidateCache($entity);
-  }
+    if ($entity->getEntityTypeId() === 'node') {
+        $dlcc = new DrupalLaravelCacheController();
+        $dlcc->invalidateCache($entity);
+    }
 }
