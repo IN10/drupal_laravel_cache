@@ -36,6 +36,9 @@ class DrupalLaravelCacheController
             $client->request('POST', $this->laravelUrl, [
                 'form_params' => [
                     'tags' => $bundle
+                ],
+                'headers'=> [
+                    'Content-Type' => 'application/json'
                 ]
             ]);
             \Drupal::logger('drupal_laravel_cache')->notice('Caches invalidated for tag ' . $bundle);
@@ -54,7 +57,11 @@ class DrupalLaravelCacheController
     {
         try {
             $client = new Client();
-            $client->request('POST', $this->laravelUrl);
+            $client->request('POST', $this->laravelUrl, [
+                'headers'=> [
+                    'Content-Type' => 'application/json'
+                ]
+            ]);
             $message = 'Caches invalidated for all content';
             \Drupal::logger('drupal_laravel_cache')->notice($message);
         } catch (\Exception $exception) {
