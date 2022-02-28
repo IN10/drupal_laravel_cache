@@ -31,6 +31,11 @@ class DrupalLaravelCacheController
         // get the entity bundle
         $bundle = $entity->bundle();
 
+        if (isset($_SESSION['no-cache']) && $_SESSION['no-cache'] === $bundle) {
+            \Drupal::logger('drupal_laravel_cache')->notice('No cache cleared for ' . $bundle);
+            return;
+        }
+
         try {
             $client = new Client();
             $client->request('POST', $this->laravelUrl, [
