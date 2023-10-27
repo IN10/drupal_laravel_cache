@@ -2,4 +2,4 @@ name: Drupal Laravel cache
 type: module
 description: 'Module which invalidates Laravel cache on entity mutation'
 package: IN10
-core_version_requirement: '^8 || ^9'
+core_version_requirement: '^8 || ^9 || ^10'
