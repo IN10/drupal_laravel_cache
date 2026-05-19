@@ -16,6 +16,10 @@ class DrupalLaravelCacheController
      * Map of Drupal bundle machine names → api-gateway cache tag names.
      * Configured under settings['laravel']['bundle_map'] in settings.php.
      *
+     * Required because Drupal bundles (e.g. ct_event) don't match the
+     * API gateway type names (e.g. events). Bundles not in the map
+     * will not trigger cache invalidation.
+     *
      * @var array<string,string>
      */
     protected $bundleMap;
