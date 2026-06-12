@@ -24,13 +24,40 @@ class DrupalLaravelCacheController
      */
     protected $bundleMap;
 
+    /**
+     * Base URL of the API gateway (without the endpoint path).
+     *
+     * @var string
+     */
+    protected $baseUrl;
+
+    /**
+     * Shared secret sent as X-Gateway-Secret on every webhook call. Must match
+     * GATEWAY_WEBHOOK_SECRET on the gateway. Null = send no header (gateway then
+     * treats the endpoints as unprotected, i.e. legacy behaviour).
+     *
+     * @var string|null
+     */
+    protected $secret;
+
+    /**
+     * Base path of the route-index endpoints (e.g. "/admin/v1.0/route-index").
+     * Null = route-index syncing is disabled (only cache invalidation runs).
+     *
+     * @var string|null
+     */
+    protected $routeIndexEndpoint;
+
     public function __construct()
     {
         $laravelSettings = Settings::get('laravel');
-        $this->laravelUrl = $laravelSettings['base_url'] . $laravelSettings['cache_endpoint'];
+        $this->baseUrl = $laravelSettings['base_url'] ?? '';
+        $this->laravelUrl = $this->baseUrl . ($laravelSettings['cache_endpoint'] ?? '');
         $this->bundleMap = isset($laravelSettings['bundle_map']) && is_array($laravelSettings['bundle_map'])
             ? $laravelSettings['bundle_map']
             : [];
+        $this->secret = $laravelSettings['webhook_secret'] ?? null;
+        $this->routeIndexEndpoint = $laravelSettings['route_index_endpoint'] ?? null;
     }
 
     /**
@@ -142,6 +169,7 @@ class DrupalLaravelCacheController
                 'json' => [
                     'tags' => $tags,
                 ],
+                'headers' => $this->webhookHeaders(),
             ]);
             \Drupal::logger('drupal_laravel_cache')->notice('Caches invalidated for tags ' . implode(', ', $tags));
         } catch (\Exception $exception) {
@@ -160,6 +188,7 @@ class DrupalLaravelCacheController
             // Empty body → api-gateway hits the fallback flush-all branch.
             $client->request('POST', $this->laravelUrl, [
                 'json' => new \stdClass(),
+                'headers' => $this->webhookHeaders(),
             ]);
             $message = 'Caches invalidated for all content';
             \Drupal::logger('drupal_laravel_cache')->notice($message);
@@ -172,5 +201,125 @@ class DrupalLaravelCacheController
         return [
             '#markup' => t($message),
         ];
+    }
+
+    /**
+     * Keep the gateway's route index in sync with this node.
+     *
+     * Cache invalidation (above) only tells the gateway "the content at this path
+     * changed, re-fetch it" — it says nothing about which paths EXIST. The route
+     * index is that list: it lets the gateway return an instant 404 for unknown
+     * paths (scans/junk) without ever calling Drupal. To stay accurate it needs
+     * to be told when a page appears or disappears, which is what this does:
+     *
+     *   - published translation   → add its field_path   (it's now a valid route)
+     *   - unpublished translation → remove its field_path
+     *   - node deleted ($removed) → remove every field_path
+     *
+     * Uses field_path (the exact value the gateway filters/looks up on), per
+     * translation, so the index key always matches the lookup key.
+     *
+     * @param object $entity
+     * @param bool   $removed  true when the node is being deleted
+     */
+    public function syncRouteIndex($entity, bool $removed = false): void
+    {
+        // Only run when the route-index endpoint is configured in settings.
+        if (empty($this->routeIndexEndpoint)) {
+            return;
+        }
+
+        foreach ($this->fieldPathsByLanguage($entity) as $langcode => $path) {
+            if ($removed) {
+                $this->routeIndex('remove', $langcode, $path);
+                continue;
+            }
+
+            $translation = $this->translationFor($entity, $langcode);
+            $published = !method_exists($translation, 'isPublished') || $translation->isPublished();
+
+            $this->routeIndex($published ? 'add' : 'remove', $langcode, $path);
+        }
+    }
+
+    /**
+     * POST a single add/remove to the gateway route-index endpoint.
+     */
+    protected function routeIndex(string $op, string $locale, string $path): void
+    {
+        $url = $this->baseUrl . $this->routeIndexEndpoint . '/' . $op;
+
+        try {
+            (new Client())->request('POST', $url, [
+                'json' => [
+                    'locale' => $locale,
+                    'path' => $path,
+                ],
+                'headers' => $this->webhookHeaders(),
+            ]);
+            \Drupal::logger('drupal_laravel_cache')->notice("Route index {$op}: [{$locale}] {$path}");
+        } catch (\Exception $exception) {
+            \Drupal::logger('drupal_laravel_cache')->error(
+                "Route index {$op} failed for [{$locale}] {$path}: " . $exception->getMessage()
+            );
+        }
+    }
+
+    /**
+     * Collect the field_path for each translation of the node.
+     *
+     * @return array<string,string> langcode => field_path
+     */
+    protected function fieldPathsByLanguage($entity): array
+    {
+        if (!method_exists($entity, 'hasField') || !$entity->hasField('field_path')) {
+            return [];
+        }
+
+        $langcodes = method_exists($entity, 'getTranslationLanguages')
+            ? array_keys($entity->getTranslationLanguages())
+            : [$entity->language()->getId()];
+
+        $paths = [];
+        foreach ($langcodes as $langcode) {
+            try {
+                $value = $this->translationFor($entity, $langcode)->get('field_path')->value ?? null;
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            if (is_string($value) && trim($value) !== '') {
+                $paths[$langcode] = trim($value);
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * Get the entity's translation for a langcode, falling back to the entity.
+     */
+    protected function translationFor($entity, string $langcode)
+    {
+        try {
+            if (method_exists($entity, 'hasTranslation') && $entity->hasTranslation($langcode)) {
+                return $entity->getTranslation($langcode);
+            }
+        } catch (\Throwable $e) {
+            // fall through to the untranslated entity
+        }
+
+        return $entity;
+    }
+
+    /**
+     * Headers sent on every gateway webhook call. Adds the shared secret when
+     * configured; otherwise empty (legacy/unprotected behaviour).
+     *
+     * @return array<string,string>
+     */
+    protected function webhookHeaders(): array
+    {
+        return !empty($this->secret) ? ['X-Gateway-Secret' => $this->secret] : [];
     }
 }
