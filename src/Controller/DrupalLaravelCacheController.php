@@ -24,6 +24,15 @@ class DrupalLaravelCacheController
      */
     protected $bundleMap;
 
+    /**
+     * Shared secret sent as X-Gateway-Secret on the invalidate call, so the
+     * gateway can reject public POSTs to its flush endpoint. Null = send no
+     * header (gateway then treats the endpoint as unprotected / legacy).
+     *
+     * @var string|null
+     */
+    protected $secret;
+
     public function __construct()
     {
         $laravelSettings = Settings::get('laravel');
@@ -31,6 +40,17 @@ class DrupalLaravelCacheController
         $this->bundleMap = isset($laravelSettings['bundle_map']) && is_array($laravelSettings['bundle_map'])
             ? $laravelSettings['bundle_map']
             : [];
+        $this->secret = $laravelSettings['webhook_secret'] ?? null;
+    }
+
+    /**
+     * Headers for the gateway call: adds the shared secret when configured.
+     *
+     * @return array<string,string>
+     */
+    protected function webhookHeaders(): array
+    {
+        return !empty($this->secret) ? ['X-Gateway-Secret' => $this->secret] : [];
     }
 
     /**
@@ -142,6 +162,7 @@ class DrupalLaravelCacheController
                 'json' => [
                     'tags' => $tags,
                 ],
+                'headers' => $this->webhookHeaders(),
             ]);
             \Drupal::logger('drupal_laravel_cache')->notice('Caches invalidated for tags ' . implode(', ', $tags));
         } catch (\Exception $exception) {
@@ -160,6 +181,7 @@ class DrupalLaravelCacheController
             // Empty body → api-gateway hits the fallback flush-all branch.
             $client->request('POST', $this->laravelUrl, [
                 'json' => new \stdClass(),
+                'headers' => $this->webhookHeaders(),
             ]);
             $message = 'Caches invalidated for all content';
             \Drupal::logger('drupal_laravel_cache')->notice($message);
